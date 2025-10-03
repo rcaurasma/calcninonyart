@@ -332,10 +332,11 @@ Total: $ 19.100"></textarea>
                 }
 
                 // 2. Check for Item line (Name, Quantity, Price)
-                // MODIFICACIÓN: Añado 'por' a las posibles unidades de cantidad.
-                const itemMatch = line.match(/(.+)\s+(\d+)\s+(uni|hojas|packs?|por)\s*[\$]?\s*([\d\.\,]+)/i);
+                // MODIFICACIÓN: Se ajusta la regex a non-greedy (.*?) para asegurar que el nombre no consuma la cantidad.
+                const itemMatch = line.match(/(.*?)\s*(\d+)\s+(uni|hojas|packs?|por)\s*[\$]?\s*([\d\.\,]+)/i);
 
                 if (itemMatch) {
+                    // itemMatch[1] = Name, itemMatch[2] = Qty, itemMatch[4] = Price
                     const name = itemMatch[1].trim();
                     const qty = parseInt(itemMatch[2]);
                     // Raw price is the total cost for that line item
