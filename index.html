@@ -96,8 +96,8 @@ Total: $ 19.100"></textarea>
             {
                 id: 1,
                 name: "Pedido 1",
-                totalReal: 47200, // Calculated sum of item totals (10000+4500+10000+4500+9100+9100)
-                totalDiscount: 47000, // Total provided in the email
+                totalReal: 47200, 
+                totalDiscount: 47000, 
                 items: [
                     { name: "Burripache A4", qty: 10, unitCost: 1000, totalCost: 10000, saleCost: 0, profit: 0 },
                     { name: "Burripache A6", qty: 10, unitCost: 450, totalCost: 4500, saleCost: 0, profit: 0 },
@@ -106,10 +106,26 @@ Total: $ 19.100"></textarea>
                     { name: "Barripache stickers", qty: 7, unitCost: 1300, totalCost: 9100, saleCost: 0, profit: 0 },
                     { name: "Supashi stickers", qty: 7, unitCost: 1300, totalCost: 9100, saleCost: 0, profit: 0 }
                 ]
+            },
+            // Pedido 2 - Ingresado por el usuario
+            {
+                id: 2,
+                name: "Pedido 2",
+                totalReal: 105500, // Suma de los costos individuales
+                totalDiscount: 100000, // Total: $100.000
+                items: [
+                    { name: "Tarjetas de presentación", qty: 100, unitCost: 150, totalCost: 15000, saleCost: 0, profit: 0 },
+                    { name: "poster sajaboys A4 glossy", qty: 10, unitCost: 1000, totalCost: 10000, saleCost: 0, profit: 0 },
+                    { name: "Poster skitty A4 glossy", qty: 10, unitCost: 1000, totalCost: 10000, saleCost: 0, profit: 0 },
+                    { name: "Poster gatotlo A4 matte", qty: 10, unitCost: 1000, totalCost: 10000, saleCost: 0, profit: 0 },
+                    { name: "Poster creeper a6 glossy", qty: 10, unitCost: 450, totalCost: 4500, saleCost: 0, profit: 0 },
+                    { name: "set stickers", qty: 40, unitCost: 600, totalCost: 24000, saleCost: 0, profit: 0 },
+                    { name: "Hojas stickers A4 con corte", qty: 32, unitCost: 1000, totalCost: 32000, saleCost: 0, profit: 0 }
+                ]
             }
         ];
 
-        let nextOrderId = 2; // For the next order
+        let nextOrderId = 3; // El próximo pedido será el 3
 
         // --- Utility Functions ---
 
@@ -143,8 +159,12 @@ Total: $ 19.100"></textarea>
             document.getElementById('total-descuento-global').textContent = formatCurrency(totalDiscountGlobal);
             const diferenciaGlobal = totalRealGlobal - totalDiscountGlobal;
             document.getElementById('diferencia-global').textContent = formatCurrency(diferenciaGlobal);
+            // Cambiar el color si hay un ahorro (diferencia positiva)
             document.getElementById('diferencia-global').classList.toggle('text-green-600', diferenciaGlobal > 0);
             document.getElementById('diferencia-global').classList.toggle('text-red-600', diferenciaGlobal < 0);
+            // Asegurar un color neutro si es cero
+            document.getElementById('diferencia-global').classList.toggle('text-gray-800', diferenciaGlobal === 0);
+
 
             renderOrders();
         };
@@ -186,7 +206,7 @@ Total: $ 19.100"></textarea>
                             </div>
                             <div class="p-3 bg-gray-50 rounded-lg flex-1 min-w-[180px]">
                                 <p class="text-sm font-medium text-gray-600">Diferencia:</p>
-                                <p class="text-lg font-bold ${order.totalReal > order.totalDiscount ? 'text-green-600' : 'text-red-600'}">
+                                <p class="text-lg font-bold ${order.totalReal > order.totalDiscount ? 'text-green-600' : (order.totalReal < order.totalDiscount ? 'text-red-600' : 'text-gray-800')}">
                                     ${formatCurrency(order.totalReal - order.totalDiscount)}
                                 </p>
                             </div>
@@ -259,13 +279,15 @@ Total: $ 19.100"></textarea>
                 // Update the profit display for this specific cell
                 document.getElementById(`profit-cell-${orderId}-${itemIndex}`).textContent = formatCurrency(item.profit);
             }
-            // Recalculate global totals (though profits don't affect them, it's good practice)
+            // Recalculate global totals
             updateAllTotals(); 
         };
 
         /** Removes an order */
         const removeOrder = (orderId) => {
-            if (confirm(`¿Estás seguro de que quieres eliminar el Pedido ${orderId}?`)) {
+            // Reemplazo de alert/confirm con un mensaje en la consola por restricciones del entorno
+            console.log(`Simulando confirmación: ¿Estás seguro de que quieres eliminar el Pedido ${orderId}?`);
+            if (true) { // Asumimos que el usuario confirmaría en un entorno real
                 orders = orders.filter(o => o.id !== orderId);
                 updateAllTotals();
             }
@@ -310,9 +332,8 @@ Total: $ 19.100"></textarea>
                 }
 
                 // 2. Check for Item line (Name, Quantity, Price)
-                // Pattern: (Product Name) (Qty) uni $ (Price)
-                // Ex: Burripache A4 10 uni $10.000
-                const itemMatch = line.match(/(.+)\s+(\d+)\s+(uni|hojas|packs?)\s*[\$]?\s*([\d\.\,]+)/i);
+                // MODIFICACIÓN: Añado 'por' a las posibles unidades de cantidad.
+                const itemMatch = line.match(/(.+)\s+(\d+)\s+(uni|hojas|packs?|por)\s*[\$]?\s*([\d\.\,]+)/i);
 
                 if (itemMatch) {
                     const name = itemMatch[1].trim();
@@ -337,7 +358,8 @@ Total: $ 19.100"></textarea>
             newOrder.totalReal = newOrder.items.reduce((sum, item) => sum + item.totalCost, 0);
 
             if (newOrder.items.length === 0 || !totalLineFound) {
-                alert("No se pudo clasificar el pedido. Asegúrate de que cada línea tenga formato 'Producto Qty uni/hojas $Precio' y que haya una línea 'Total: $Monto'.");
+                // Reemplazo de alert con mensaje de error en la consola
+                console.error("Error de clasificación: No se pudo clasificar el pedido. Asegúrate de que cada línea tenga formato 'Producto Qty uni/hojas/por $Precio' y que haya una línea 'Total: $Monto'.");
                 return null;
             }
 
@@ -426,7 +448,8 @@ Total: $ 19.100"></textarea>
             link.click();
             document.body.removeChild(link);
 
-            alert("¡El archivo CSV ha sido generado y descargado con éxito!");
+            // Reemplazo de alert con mensaje en la consola
+            console.log("¡El archivo CSV ha sido generado y descargado con éxito!");
         };
 
         // Initial render on load
