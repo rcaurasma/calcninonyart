@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Pedidos e Inventario</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+        }
+        .container-card {
+            background-color: #ffffff;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .header-bg {
+            background-color: #3b82f6;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="p-4 sm:p-8">
+        <div class="max-w-6xl mx-auto container-card rounded-xl p-6 md:p-10">
+
+            <!-- Title and Header -->
+            <header class="mb-8">
+                <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-2">Gestor de Costos de Pedidos</h1>
+                <p class="text-gray-500">Organiza y calcula los costos de compra y venta de tus 5 pedidos.</p>
+                <p class="text-sm text-red-500 mt-1">Nota: Las celdas de "Costo de Venta" y "Ganancia" están diseñadas para que las edites tú.</p>
+            </header>
+
+            <!-- Order Input/Button -->
+            <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                <button onclick="showModal()" class="w-full sm:w-auto px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition duration-150 shadow-md">
+                    + Añadir Pedido (Correo)
+                </button>
+                <button onclick="exportToCSV()" class="w-full sm:w-auto mt-4 sm:mt-0 px-6 py-3 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700 transition duration-150 shadow-md">
+                    Exportar a Excel (CSV)
+                </button>
+            </div>
+
+            <!-- Orders Container -->
+            <div id="orders-container" class="space-y-12">
+                <!-- Orders will be rendered here -->
+            </div>
+
+            <!-- Global Totals Summary -->
+            <div id="global-totals" class="mt-10 pt-6 border-t-4 border-dashed border-gray-200">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Resumen de Todos los Pedidos</h2>
+                <div class="flex flex-wrap gap-4 text-lg font-semibold">
+                    <div class="p-4 bg-blue-50 rounded-lg flex-1 min-w-[200px]">
+                        <p class="text-blue-700">Total Real Global:</p>
+                        <p id="total-real-global" class="text-2xl text-blue-900 mt-1">$ 0</p>
+                    </div>
+                    <div class="p-4 bg-indigo-50 rounded-lg flex-1 min-w-[200px]">
+                        <p class="text-indigo-700">Total con Descuento Global:</p>
+                        <p id="total-descuento-global" class="text-2xl text-indigo-900 mt-1">$ 0</p>
+                    </div>
+                    <div class="p-4 bg-red-50 rounded-lg flex-1 min-w-[200px]">
+                        <p class="text-red-700">Ahorro/Pérdida (Global):</p>
+                        <p id="diferencia-global" class="text-2xl text-red-900 mt-1">$ 0</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Modal for adding new order -->
+    <div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6">
+            <h3 class="text-xl font-bold mb-4">Añadir Nuevo Pedido</h3>
+            <p class="text-gray-600 mb-4">Pega aquí el contenido completo del correo de tu pedido (productos y total). Intentaremos clasificarlo automáticamente.</p>
+            <textarea id="order-input" rows="8" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="Ejemplo:
+Burripache A4 10 uni $10.000 
+Supashi stickers 7 hojas $9100 
+Total: $ 19.100"></textarea>
+            <div class="mt-4 flex justify-end space-x-3">
+                <button onclick="closeModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">
+                    Cancelar
+                </button>
+                <button onclick="addOrderFromInput()" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">
+                    Procesar Pedido
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Data Structure ---
+        let orders = [
+            // Pedido Inicial (Pedido 1)
+            {
+                id: 1,
+                name: "Pedido 1",
+                totalReal: 47200, // Calculated sum of item totals (10000+4500+10000+4500+9100+9100)
+                totalDiscount: 47000, // Total provided in the email
+                items: [
+                    { name: "Burripache A4", qty: 10, unitCost: 1000, totalCost: 10000, saleCost: 0, profit: 0 },
+                    { name: "Burripache A6", qty: 10, unitCost: 450, totalCost: 4500, saleCost: 0, profit: 0 },
+                    { name: "Supashi A4", qty: 10, unitCost: 1000, totalCost: 10000, saleCost: 0, profit: 0 },
+                    { name: "Supashi A6", qty: 10, unitCost: 450, totalCost: 4500, saleCost: 0, profit: 0 },
+                    { name: "Barripache stickers", qty: 7, unitCost: 1300, totalCost: 9100, saleCost: 0, profit: 0 },
+                    { name: "Supashi stickers", qty: 7, unitCost: 1300, totalCost: 9100, saleCost: 0, profit: 0 }
+                ]
+            }
+        ];
+
+        let nextOrderId = 2; // For the next order
+
+        // --- Utility Functions ---
+
+        /** Formats a number as currency (CLP style, assuming local currency) */
+        const formatCurrency = (number) => {
+            return new Intl.NumberFormat('es-CL', {
+                style: 'currency',
+                currency: 'CLP',
+                minimumFractionDigits: 0
+            }).format(number);
+        };
+
+        /** Calculates totals for an order */
+        const calculateOrderTotals = (order) => {
+            order.totalReal = order.items.reduce((sum, item) => sum + item.totalCost, 0);
+            return order;
+        };
+
+        /** Updates the totals of all orders and the global summary */
+        const updateAllTotals = () => {
+            let totalRealGlobal = 0;
+            let totalDiscountGlobal = 0;
+
+            orders.forEach(order => {
+                calculateOrderTotals(order);
+                totalRealGlobal += order.totalReal;
+                totalDiscountGlobal += order.totalDiscount;
+            });
+
+            document.getElementById('total-real-global').textContent = formatCurrency(totalRealGlobal);
+            document.getElementById('total-descuento-global').textContent = formatCurrency(totalDiscountGlobal);
+            const diferenciaGlobal = totalRealGlobal - totalDiscountGlobal;
+            document.getElementById('diferencia-global').textContent = formatCurrency(diferenciaGlobal);
+            document.getElementById('diferencia-global').classList.toggle('text-green-600', diferenciaGlobal > 0);
+            document.getElementById('diferencia-global').classList.toggle('text-red-600', diferenciaGlobal < 0);
+
+            renderOrders();
+        };
+
+
+        // --- Rendering Functions ---
+
+        /** Renders all orders into the main container */
+        const renderOrders = () => {
+            const container = document.getElementById('orders-container');
+            container.innerHTML = ''; // Clear previous content
+
+            if (orders.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center p-8">Aún no hay pedidos ingresados.</p>';
+                return;
+            }
+
+            orders.forEach(order => {
+                const orderHtml = `
+                    <div class="order-card p-6 border border-gray-200 rounded-xl shadow-sm bg-white">
+                        <div class="flex justify-between items-center mb-4 pb-2 border-b">
+                            <h2 class="text-xl font-bold text-gray-800">${order.name} - Clasificación y Costos</h2>
+                            <button onclick="removeOrder(${order.id})" class="text-red-500 hover:text-red-700 transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        <!-- Order Totals -->
+                        <div class="flex flex-wrap gap-4 mb-6">
+                            <div class="p-3 bg-gray-50 rounded-lg flex-1 min-w-[180px]">
+                                <p class="text-sm font-medium text-gray-600">Total Real (Calculado):</p>
+                                <p class="text-lg font-bold text-gray-800">${formatCurrency(order.totalReal)}</p>
+                            </div>
+                            <div class="p-3 bg-gray-50 rounded-lg flex-1 min-w-[180px]">
+                                <p class="text-sm font-medium text-gray-600">Total con Descuento (Monto del Correo):</p>
+                                <input id="discount-total-${order.id}" type="number" onchange="updateDiscount(${order.id}, this.value)" class="text-lg font-bold text-indigo-700 w-full bg-transparent border-0 p-0 focus:ring-0" value="${order.totalDiscount}" placeholder="0">
+                            </div>
+                            <div class="p-3 bg-gray-50 rounded-lg flex-1 min-w-[180px]">
+                                <p class="text-sm font-medium text-gray-600">Diferencia:</p>
+                                <p class="text-lg font-bold ${order.totalReal > order.totalDiscount ? 'text-green-600' : 'text-red-600'}">
+                                    ${formatCurrency(order.totalReal - order.totalDiscount)}
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Items Table -->
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre del Producto</th>
+                                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
+                                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Costo Compra (Uni)</th>
+                                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Costo Compra (Total)</th>
+                                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-green-600">Costo Venta (Uni)</th>
+                                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-green-600">Ganancia (Total)</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    ${order.items.map((item, itemIndex) => `
+                                        <tr>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${item.name}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-700">${item.qty}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-700">${formatCurrency(item.unitCost)}</td>
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-700 font-semibold">${formatCurrency(item.totalCost)}</td>
+                                            
+                                            <!-- Costo de Venta (Editable) -->
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-green-600">
+                                                <input id="sale-cost-${order.id}-${itemIndex}" type="number" value="${item.saleCost}" 
+                                                    onchange="updateSaleCost(${order.id}, ${itemIndex}, this.value)"
+                                                    class="w-24 border-gray-300 rounded-md shadow-sm focus:border-green-500 focus:ring-green-500 text-sm p-1">
+                                            </td>
+                                            
+                                            <!-- Ganancia (Calculated) -->
+                                            <td id="profit-cell-${order.id}-${itemIndex}" class="px-3 py-3 whitespace-nowrap text-sm font-bold text-gray-700">
+                                                ${formatCurrency(item.profit)}
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += orderHtml;
+            });
+        };
+
+        // --- User Interaction Logic ---
+
+        /** Updates the discount total for an order */
+        const updateDiscount = (orderId, value) => {
+            const order = orders.find(o => o.id === orderId);
+            if (order) {
+                order.totalDiscount = parseInt(value) || 0;
+                updateAllTotals();
+            }
+        };
+
+        /** Updates the sale cost and profit for an item */
+        const updateSaleCost = (orderId, itemIndex, value) => {
+            const order = orders.find(o => o.id === orderId);
+            if (order && order.items[itemIndex]) {
+                const item = order.items[itemIndex];
+                item.saleCost = parseInt(value) || 0;
+                
+                // Calculate profit: (Sale Price - Unit Cost) * Quantity
+                item.profit = (item.saleCost - item.unitCost) * item.qty;
+                
+                // Update the profit display for this specific cell
+                document.getElementById(`profit-cell-${orderId}-${itemIndex}`).textContent = formatCurrency(item.profit);
+            }
+            // Recalculate global totals (though profits don't affect them, it's good practice)
+            updateAllTotals(); 
+        };
+
+        /** Removes an order */
+        const removeOrder = (orderId) => {
+            if (confirm(`¿Estás seguro de que quieres eliminar el Pedido ${orderId}?`)) {
+                orders = orders.filter(o => o.id !== orderId);
+                updateAllTotals();
+            }
+        };
+
+
+        // --- Modal and Parsing Functions ---
+
+        const showModal = () => {
+            document.getElementById('modal').classList.remove('hidden');
+            document.getElementById('modal').classList.add('flex');
+            document.getElementById('order-input').value = '';
+        };
+
+        const closeModal = () => {
+            document.getElementById('modal').classList.remove('flex');
+            document.getElementById('modal').classList.add('hidden');
+        };
+
+        /** Attempts to parse the email text into an order structure */
+        const parseOrderText = (text) => {
+            const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+            const newOrder = {
+                id: nextOrderId,
+                name: `Pedido ${nextOrderId}`,
+                totalReal: 0,
+                totalDiscount: 0,
+                items: []
+            };
+
+            let totalLineFound = false;
+
+            for (const line of lines) {
+                // 1. Check for Total line
+                const totalMatch = line.match(/Total:\s*[\$]?\s*([\d\.\,]+)/i);
+                if (totalMatch) {
+                    // Extract total, remove non-digit/comma/dot characters, and convert to integer
+                    const rawTotal = totalMatch[1].replace(/[^0-9]/g, ''); // Remove non-numbers (assuming CLP uses dots/commas as thousands separators, which we ignore)
+                    newOrder.totalDiscount = parseInt(rawTotal) || 0;
+                    totalLineFound = true;
+                    continue; // Skip to next line
+                }
+
+                // 2. Check for Item line (Name, Quantity, Price)
+                // Pattern: (Product Name) (Qty) uni $ (Price)
+                // Ex: Burripache A4 10 uni $10.000
+                const itemMatch = line.match(/(.+)\s+(\d+)\s+(uni|hojas|packs?)\s*[\$]?\s*([\d\.\,]+)/i);
+
+                if (itemMatch) {
+                    const name = itemMatch[1].trim();
+                    const qty = parseInt(itemMatch[2]);
+                    // Raw price is the total cost for that line item
+                    const rawTotalCost = itemMatch[4].replace(/[^0-9]/g, '');
+                    const totalCost = parseInt(rawTotalCost) || 0;
+                    const unitCost = qty > 0 ? Math.round(totalCost / qty) : 0;
+                    
+                    newOrder.items.push({
+                        name: name,
+                        qty: qty,
+                        unitCost: unitCost,
+                        totalCost: totalCost,
+                        saleCost: 0,
+                        profit: 0
+                    });
+                }
+            }
+
+            // Calculate Total Real (sum of line item total costs)
+            newOrder.totalReal = newOrder.items.reduce((sum, item) => sum + item.totalCost, 0);
+
+            if (newOrder.items.length === 0 || !totalLineFound) {
+                alert("No se pudo clasificar el pedido. Asegúrate de que cada línea tenga formato 'Producto Qty uni/hojas $Precio' y que haya una línea 'Total: $Monto'.");
+                return null;
+            }
+
+            return newOrder;
+        };
+
+        /** Handles adding a new order from the modal input */
+        const addOrderFromInput = () => {
+            const text = document.getElementById('order-input').value;
+            const newOrder = parseOrderText(text);
+
+            if (newOrder) {
+                orders.push(newOrder);
+                nextOrderId++;
+                updateAllTotals();
+                closeModal();
+            }
+        };
+
+        // --- Export Function ---
+
+        /** Exports all data to a CSV file */
+        const exportToCSV = () => {
+            let csvContent = "data:text/csv;charset=utf-8,";
+            
+            // Header for CSV
+            const header = [
+                "Pedido ID",
+                "Nombre del Producto",
+                "Costo de Compra (Unitario)",
+                "Cantidad",
+                "Costo de Compra (Total)",
+                "Costo de Venta (Unitario)",
+                "Ganancia (Total)"
+            ].join(",");
+            csvContent += header + "\n";
+
+            // Add item data
+            orders.forEach(order => {
+                order.items.forEach(item => {
+                    const row = [
+                        order.name,
+                        `"${item.name.replace(/"/g, '""')}"`, // Handle commas/quotes in product name
+                        item.unitCost,
+                        item.qty,
+                        item.totalCost,
+                        item.saleCost,
+                        item.profit
+                    ].join(",");
+                    csvContent += row + "\n";
+                });
+            });
+
+            // Add Order Totals (if requested)
+            csvContent += "\n\n";
+            csvContent += "Totales por Pedido\n";
+            csvContent += "Pedido ID,Total Real,Total con Descuento,Diferencia\n";
+            orders.forEach(order => {
+                const row = [
+                    order.name,
+                    order.totalReal,
+                    order.totalDiscount,
+                    order.totalReal - order.totalDiscount
+                ].join(",");
+                csvContent += row + "\n";
+            });
+
+            // Add Global Totals
+            const totalRealGlobal = orders.reduce((sum, o) => sum + o.totalReal, 0);
+            const totalDiscountGlobal = orders.reduce((sum, o) => sum + o.totalDiscount, 0);
+            const diferenciaGlobal = totalRealGlobal - totalDiscountGlobal;
+
+            csvContent += "\n\n";
+            csvContent += "Totales Globales\n";
+            csvContent += `Total Real Global,${totalRealGlobal}\n`;
+            csvContent += `Total con Descuento Global,${totalDiscountGlobal}\n`;
+            csvContent += `Ahorro/Pérdida (Global),${diferenciaGlobal}\n`;
+
+
+            // Create and download file
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "reporte_pedidos_inventario.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            alert("¡El archivo CSV ha sido generado y descargado con éxito!");
+        };
+
+        // Initial render on load
+        window.onload = updateAllTotals;
+    </script>
+</body>
+</html>
